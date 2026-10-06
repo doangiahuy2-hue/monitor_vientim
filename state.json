@@ -1,8 +1,17 @@
 {
   "seen_ids": [
+    6868,
+    6882,
+    6909,
+    6964,
+    6969,
+    6977,
+    7016,
+    7037,
+    7082,
     7102
   ],
-  "initialized": false,
+  "initialized": true,
   "consecutive_failures": 0,
   "last_alert_ts": 0.0,
   "alert_active": false,
