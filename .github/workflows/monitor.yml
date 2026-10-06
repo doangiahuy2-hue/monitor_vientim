@@ -1,0 +1,74 @@
+name: Monitor Vien Tim
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # GitHub có thể trễ vài phút vào giờ cao điểm
+  workflow_dispatch:
+    inputs:
+      test_latest:
+        description: "Gửi thử bài mới nhất"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: monitor
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      HEARTBEAT_HOUR: "8"
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Cài thư viện
+        run: pip install -r requirements.txt
+
+      # Bước nhẹ (~1 s): chỉ gọi REST API, không cần trình duyệt.
+      - name: Phát hiện bài mới
+        id: detect
+        run: python -m monitor.main --detect
+
+      - name: Cache trình duyệt Playwright
+        if: steps.detect.outputs.has_new == 'true' || inputs.test_latest
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+
+      - name: Cài Chromium (chỉ khi có bài mới)
+        if: steps.detect.outputs.has_new == 'true' || inputs.test_latest
+        run: python -m playwright install --with-deps chromium
+
+      - name: Chạy monitor
+        run: |
+          if [ "${{ inputs.test_latest }}" = "true" ]; then
+            python -m monitor.main --once --test-latest
+          else
+            python -m monitor.main --once
+          fi
+
+      - name: Lưu state
+        if: always()
+        run: |
+          git config user.name "vientim-monitor"
+          git config user.email "actions@users.noreply.github.com"
+          git add state.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update state [skip ci]"
+            git pull --rebase --autostash || true
+            git push
+          fi
