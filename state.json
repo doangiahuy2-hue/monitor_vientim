@@ -12,7 +12,7 @@
     7102
   ],
   "initialized": true,
-  "consecutive_failures": 1,
+  "consecutive_failures": 0,
   "last_alert_ts": 0.0,
   "alert_active": false,
   "last_heartbeat_date": "2026-10-07"
