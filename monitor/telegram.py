@@ -98,34 +98,6 @@ class Telegram:
             files={"document": (name, data)},
         )
 
-    def get_updates(self, offset: int | None = None, timeout: int = 0) -> list[dict]:
-        data: dict[str, str | int] = {
-            "timeout": timeout,
-            "allowed_updates": json.dumps(["message"]),
-        }
-        if offset is not None:
-            data["offset"] = offset
-        try:
-            r = self.client.post(f"{self.base}/getUpdates", data=data, timeout=timeout + 15)
-            res = r.json()
-            if res.get("ok"):
-                return res.get("result", [])
-        except Exception as e:
-            log.debug("getUpdates error: %s", e)
-        return []
-
-    def set_commands(self) -> None:
-        """Đăng ký menu lệnh gợi ý sẵn trong giao diện chat Telegram."""
-        cmds = [
-            {"command": "check", "description": "Kiểm tra bài viết mới ngay"},
-            {"command": "status", "description": "Xem tình trạng hoạt động"},
-            {"command": "help", "description": "Hướng dẫn sử dụng bot"},
-        ]
-        try:
-            self._call("setMyCommands", {"commands": json.dumps(cmds)})
-        except Exception as e:
-            log.warning("Không thể setMyCommands: %s", e)
-
 
 def load_photo(path: Path) -> tuple[str, bytes]:
     return path.name, path.read_bytes()

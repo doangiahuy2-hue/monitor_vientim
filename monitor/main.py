@@ -15,7 +15,6 @@ import os
 import signal
 import sys
 import time
-import threading
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 
@@ -27,7 +26,6 @@ from .telegram import Telegram, TelegramError, esc, load_photo, shrink_for_photo
 
 log = logging.getLogger("monitor")
 ALERT_REPEAT_SEC = 6 * 3600
-_check_lock = threading.Lock()
 
 
 def setup_logging() -> None:
@@ -167,22 +165,7 @@ def maybe_heartbeat(tg: Telegram | None, st: state_mod.State, posts: list[Post])
             log.error("Heartbeat lỗi: %s", e)
 
 
-def run_once(tg: Telegram | None, test_latest: bool = False, on_demand: bool = False) -> int:
-    if not _check_lock.acquire(blocking=False):
-        log.info('Quá trình kiểm tra khác đang chạy, bỏ qua lần gọi này.')
-        if on_demand and tg:
-            try:
-                tg.send_message('⏳ Bot đang quét website, kết quả sẽ có sau ít phút...')
-            except Exception:
-                pass
-        return 0
-    try:
-        return _do_run_once(tg, test_latest=test_latest, on_demand=on_demand)
-    finally:
-        _check_lock.release()
-
-
-def _do_run_once(tg: Telegram | None, test_latest: bool = False, on_demand: bool = False) -> int:
+def run_once(tg: Telegram | None, test_latest: bool = False) -> int:
     """Trả về số bài đã gửi."""
     st = state_mod.load(config.STATE_FILE)
     sent = 0
@@ -191,11 +174,6 @@ def _do_run_once(tg: Telegram | None, test_latest: bool = False, on_demand: bool
     except Exception as e:  # noqa: BLE001
         handle_failure(tg, st, e)
         state_mod.save(st, config.STATE_FILE)
-        if on_demand and tg:
-            try:
-                tg.send_message(f"❌ <b>Kiểm tra thất bại:</b> Không kết nối được website.\nLỗi: {esc(str(e)[:200])}")
-            except Exception:
-                pass
         return 0
     handle_recovery(tg, st)
 
@@ -231,18 +209,6 @@ def _do_run_once(tg: Telegram | None, test_latest: bool = False, on_demand: bool
             sent += 1
         if not new_posts:
             log.info("Không có bài mới.")
-            if on_demand and tg:
-                latest = posts[0] if posts else None
-                msg = "✅ <b>Kiểm tra hoàn tất:</b> Hiện chưa có bài viết mới."
-                if latest:
-                    msg += f"\n📌 Bài mới nhất: <b>{esc(latest.title)}</b> ({latest.date_str})"
-                    if latest.category_name:
-                        msg += f"\n📂 Chuyên mục: <b>{esc(latest.category_name)}</b>"
-                    msg += f"\n🔗 {esc(latest.link)}"
-                try:
-                    tg.send_message(msg)
-                except Exception as e:
-                    log.error("Lỗi gửi tin on_demand: %s", e)
 
     maybe_heartbeat(tg, st, posts)
     state_mod.save(st, config.STATE_FILE)
@@ -261,80 +227,6 @@ def detect() -> bool:
     return has_new
 
 
-def poll_commands(tg: Telegram, stop: dict) -> None:
-    """Lắng nghe các lệnh từ Telegram (/check, /status, /help) khi chạy chế độ --loop."""
-    tg.set_commands()
-    last_update_id = 0
-    log.info("Bắt đầu lắng nghe lệnh Telegram (/check, /status, /help)...")
-
-    while not stop["flag"]:
-        try:
-            updates = tg.get_updates(offset=last_update_id + 1, timeout=5)
-            for u in updates:
-                uid = u.get("update_id", 0)
-                if uid > last_update_id:
-                    last_update_id = uid
-                msg = u.get("message") or {}
-                text = (msg.get("text") or "").strip()
-                chat = msg.get("chat") or {}
-                chat_id = str(chat.get("id", ""))
-
-                # Chỉ xử lý lệnh từ chat_id đã cấu hình
-                configured_id = str(config.TELEGRAM_CHAT_ID or "")
-                if configured_id and chat_id != configured_id and not configured_id.endswith(chat_id):
-                    continue
-
-                if not text:
-                    continue
-
-                cmd = text.split()[0].lower()
-                if cmd in ("/check", "/check@vientim_bot", "/kiemtra"):
-                    log.info("Nhận lệnh /check từ Telegram")
-                    try:
-                        tg.send_message("⏳ <b>Đang kiểm tra website Viện Tim ngay lập tức...</b>")
-                    except Exception:
-                        pass
-                    run_once(tg, on_demand=True)
-                elif cmd in ("/status", "/trangthai"):
-                    log.info("Nhận lệnh /status từ Telegram")
-                    st = state_mod.load(config.STATE_FILE)
-                    posts = []
-                    try:
-                        posts = fetcher.fetch_latest_posts()
-                    except Exception:
-                        pass
-                    latest_str = f"[{posts[0].id}] {esc(posts[0].title)}" if posts else "Chưa rõ"
-                    cats_display = config.CATEGORIES or "Tất cả"
-                    status_text = (
-                        "🤖 <b>Trạng thái Monitor Viện Tim</b>\n"
-                        "• <b>Tình trạng:</b> Đang chạy 24/7\n"
-                        f"• <b>Chuyên mục theo dõi:</b> {esc(cats_display)}\n"
-                        f"• <b>Số bài đã lưu:</b> {len(st.seen_ids)} bài\n"
-                        f"• <b>Bài mới nhất hiện tại:</b> {latest_str}\n"
-                        f"• <b>Thời gian hiện tại:</b> {now_vn().strftime('%d/%m/%Y %H:%M:%S')}\n"
-                    )
-                    try:
-                        tg.send_message(status_text)
-                    except Exception:
-                        pass
-                elif cmd in ("/help", "/start"):
-                    help_text = (
-                        "🤖 <b>Bot Monitor Viện Tim TP.HCM</b>\n\n"
-                        "Các lệnh hỗ trợ:\n"
-                        "• <code>/check</code> - Quét website Viện Tim và kiểm tra bài mới ngay lập tức\n"
-                        "• <code>/status</code> - Xem tình trạng hoạt động của bot\n"
-                        "• <code>/help</code> - Xem hướng dẫn các lệnh\n\n"
-                        f"<i>Bot tự động kiểm tra định kỳ mỗi {config.CHECK_INTERVAL_SEC}s và gửi báo cáo khi có bài mới.</i>"
-                    )
-                    try:
-                        tg.send_message(help_text)
-                    except Exception:
-                        pass
-        except Exception as e:
-            log.debug("Lỗi lắng nghe lệnh Telegram: %s", e)
-            time.sleep(2)
-
-
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Monitor chuyên mục Thông báo – vientimtphcm.vn")
     g = ap.add_mutually_exclusive_group()
@@ -342,7 +234,6 @@ def main(argv: list[str] | None = None) -> int:
     g.add_argument("--loop", action="store_true", help="chạy liên tục")
     g.add_argument("--detect", action="store_true", help="chỉ phát hiện bài mới")
     ap.add_argument("--test-latest", action="store_true", help="gửi thử bài mới nhất")
-    ap.add_argument("--on-demand", action="store_true", help="báo kết quả ngay cả khi không có bài mới")
     ap.add_argument("--dry-run", action="store_true", help="không gửi Telegram")
     args = ap.parse_args(argv)
     setup_logging()
@@ -358,15 +249,13 @@ def main(argv: list[str] | None = None) -> int:
     tg = None if args.dry_run else Telegram()
 
     if not args.loop:
-        run_once(tg, test_latest=args.test_latest, on_demand=args.on_demand)
+        run_once(tg, test_latest=args.test_latest)
         return 0
 
     stop = {"flag": False}
     signal.signal(signal.SIGINT, lambda *_: stop.update(flag=True))
     signal.signal(signal.SIGTERM, lambda *_: stop.update(flag=True))
     log.info("Chạy liên tục, chu kỳ %d s", config.CHECK_INTERVAL_SEC)
-    if tg:
-        threading.Thread(target=poll_commands, args=(tg, stop), daemon=True).start()
     first = True
     while not stop["flag"]:
         started = time.monotonic()

@@ -45,31 +45,11 @@ Tự khởi động cùng Windows: Task Scheduler → *Create Task* → Trigger 
 
 Linux (VPS Oracle Always Free…): `python -m monitor.main --loop` qua systemd hoặc cron `*/5 * * * * python -m monitor.main --once`.
 
-## 3. Các cách kích hoạt kiểm tra liền (On-Demand)
-
-Bạn có thể yêu cầu bot kiểm tra website Viện Tim ngay lập tức qua các cách sau:
-
-### Cách 1: Gửi lệnh qua Telegram (`/check`)
-Khi chạy bot ở chế độ liên tục (`run_monitor.bat` hoặc `--loop`), bot sẽ tự động lắng nghe tin nhắn:
-- `/check`: Quét website ngay lập tức và gửi bài mới (kèm ảnh), hoặc báo nếu chưa có bài mới.
-- `/status`: Báo cáo tình trạng hoạt động, số bài đã theo dõi và bài mới nhất.
-- `/help`: Xem danh sách lệnh.
-
-### Cách 2: Nhấp đúp file `check_now.bat` (trên máy tính)
-- Nhấp đúp vào file `check_now.bat` trong thư mục để bot chạy quét website ngay lập tức và gửi kết quả về Telegram.
-
-### Cách 3: Nút "Run workflow" trên GitHub (Điện thoại hoặc Máy tính)
-- Mở repo GitHub (trên web hoặc qua app **GitHub Mobile** trên iOS/Android) -> vào tab **Actions** -> chọn **Monitor Vien Tim** -> bấm **Run workflow** -> bot sẽ bật chạy ngay sau 5 giây.
-
-### Cách 4: Tự động kích hoạt GitHub Actions khi gõ `/check` trên Telegram (Serverless Webhook)
-- Xem hướng dẫn và mã nguồn có sẵn tại [`tools/telegram_webhook_worker.js`](tools/telegram_webhook_worker.js) để dùng Cloudflare Worker (0đ, không cần máy chủ) kết nối trực tiếp lệnh chat Telegram với GitHub Actions.
-
-## Lệnh CLI
+## Lệnh
 | Lệnh | Tác dụng |
 |---|---|
 | `--once` | Kiểm tra 1 lần |
-| `--once --on-demand` | Kiểm tra 1 lần và luôn thông báo kết quả kể cả khi không có bài mới |
-| `--loop` | Chạy liên tục mỗi `CHECK_INTERVAL_SEC` và lắng nghe lệnh Telegram (`/check`, `/status`) |
+| `--loop` | Chạy liên tục mỗi `CHECK_INTERVAL_SEC` |
 | `--test-latest` | Gửi bài mới nhất (kiểm tra cấu hình) |
 | `--dry-run` | Không gửi Telegram, chỉ chụp ảnh vào `screenshots/` |
 | `--detect` | Chỉ báo có bài mới hay không |
