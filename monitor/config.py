@@ -1,4 +1,4 @@
-﻿"""Cấu hình trung tâm. Mọi giá trị đều có thể ghi đè bằng biến môi trường / file .env."""
+"""Cấu hình trung tâm. Mọi giá trị đều có thể ghi đè bằng biến môi trường / file .env."""
 from __future__ import annotations
 
 import os
@@ -33,11 +33,24 @@ def _env_bool(name: str, default: bool) -> bool:
 
 # --- Website ---
 BASE_URL = _env("SITE_BASE_URL", "https://vientimtphcm.vn")
-CATEGORY_ID = _env_int("CATEGORY_ID", 17)
+# CATEGORIES: danh sách ID cách nhau dấu phẩy (vd "17,19" để theo dõi Thông báo + Tin tức sự kiện),
+# hoặc để "all" / rỗng "" để theo dõi toàn bộ bài mới nhất của website Viện Tim.
+CATEGORIES = _env("CATEGORIES", _env("CATEGORY_ID", "17,19"))
 CATEGORY_URL = _env("CATEGORY_URL", f"{BASE_URL}/luu-tru/category/thong-bao")
+BLOG_URL = f"{BASE_URL}/blog"
 API_URL = f"{BASE_URL}/wp-json/wp/v2/posts"
-RSS_URL = f"{CATEGORY_URL}/feed"
+RSS_URL = f"{BASE_URL}/feed"
 TZ = timezone(timedelta(hours=7), "ICT")  # Việt Nam không có giờ mùa hè
+
+
+def get_categories_param() -> str | None:
+    """Trả về chuỗi ID lọc categories cho WP REST API, hoặc None nếu lấy toàn bộ."""
+    raw = CATEGORIES.strip()
+    if not raw or raw.lower() in ("all", "*", "none", "0"):
+        return None
+    # Chỉ giữ các số nguyên
+    ids = [p.strip() for p in raw.split(",") if p.strip().isdigit()]
+    return ",".join(ids) if ids else None
 
 # --- Telegram ---
 TELEGRAM_BOT_TOKEN = _env("TELEGRAM_BOT_TOKEN")

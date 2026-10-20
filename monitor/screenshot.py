@@ -180,18 +180,24 @@ def _with_browser(job_name: str, job) -> tuple[list[Path], str | None]:
     return [], f"Ảnh {job_name}: {str(last_err)[:300]}"
 
 
-def capture(post_id: int, post_url: str, title: str) -> Shots:
+def capture(
+    post_id: int,
+    post_url: str,
+    title: str,
+    category_url: str | None = None,
+) -> Shots:
     """Chụp 2 ảnh song song. Không raise: lỗi ghi vào Shots.errors để luồng chính gửi fallback."""
     from concurrent.futures import ThreadPoolExecutor
 
     out_dir = config.OUTPUT_DIR / str(post_id)
     out_dir.mkdir(parents=True, exist_ok=True)
     shots = Shots()
+    target_cat_url = category_url.strip() if (category_url and category_url.strip()) else config.CATEGORY_URL
 
     def category_job(page) -> list[Path]:
         found = False
         for rnd in range(1, config.CATEGORY_WAIT_ROUNDS + 1):
-            _goto(page, config.CATEGORY_URL)
+            _goto(page, target_cat_url)
             if page.locator(f"#post-{post_id}").count() > 0:
                 found = True
                 break

@@ -30,6 +30,8 @@ class Post:
     link: str
     date: datetime | None
     image_urls: list[str] = field(default_factory=list)
+    category_name: str = ""
+    category_url: str = ""
 
     @property
     def date_str(self) -> str:
@@ -101,6 +103,15 @@ def parse_api(data: list[dict]) -> list[Post]:
         elif item.get("date"):
             date = datetime.fromisoformat(item["date"]).replace(tzinfo=config.TZ)
         content = (item.get("content") or {}).get("rendered", "")
+
+        cat_name = ""
+        cat_url = ""
+        terms = item.get("_embedded", {}).get("wp:term", [])
+        if terms and terms[0]:
+            first_term = terms[0][0]
+            cat_name = clean_text(first_term.get("name", ""))
+            cat_url = first_term.get("link", "")
+
         posts.append(
             Post(
                 id=int(item["id"]),
@@ -108,19 +119,25 @@ def parse_api(data: list[dict]) -> list[Post]:
                 link=item.get("link", ""),
                 date=date,
                 image_urls=extract_images(content),
+                category_name=cat_name,
+                category_url=cat_url,
             )
         )
     return posts
 
 
 def fetch_api(client: httpx.Client) -> list[Post]:
-    params = {
-        "categories": config.CATEGORY_ID,
+    params: dict[str, str | int] = {
         "per_page": 10,
         "orderby": "date",
         "order": "desc",
-        "_fields": "id,date,date_gmt,link,title,content",
+        "_embed": "wp:term",
+        "_fields": "id,date,date_gmt,link,title,content,categories,_links,_embedded",
     }
+    cats = config.get_categories_param()
+    if cats:
+        params["categories"] = cats
+
     r = client.get(config.API_URL, params=params)
     r.raise_for_status()
     data = r.json()
@@ -150,6 +167,7 @@ def parse_rss(xml_text: str) -> list[Post]:
             except (TypeError, ValueError):
                 pass
         content = item.findtext("content:encoded", default="", namespaces=_NS)
+        category = clean_text(item.findtext("category") or "")
         posts.append(
             Post(
                 id=int(m.group(1)),
@@ -157,13 +175,18 @@ def parse_rss(xml_text: str) -> list[Post]:
                 link=link.strip(),
                 date=date,
                 image_urls=extract_images(content),
+                category_name=category,
             )
         )
     return posts
 
 
 def fetch_rss(client: httpx.Client) -> list[Post]:
-    r = client.get(config.RSS_URL)
+    cats = config.get_categories_param()
+    feed_url = config.RSS_URL
+    if cats and "," not in cats and int(cats) == 17:
+        feed_url = f"{config.CATEGORY_URL}/feed"
+    r = client.get(feed_url)
     r.raise_for_status()
     return parse_rss(r.text)
 

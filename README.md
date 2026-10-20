@@ -1,9 +1,14 @@
-# Monitor "Thông báo" – Viện Tim TP.HCM → Telegram
+# Monitor Viện Tim TP.HCM (Thông báo & Tin tức sự kiện) → Telegram
 
-Theo dõi 24/7 https://vientimtphcm.vn/luu-tru/category/thong-bao. Khi có bài mới, bot Telegram gửi:
+Theo dõi 24/7 các bài viết và thông báo mới trên website Viện Tim TP.HCM:
+- Chuyên mục **Thông báo**: https://vientimtphcm.vn/luu-tru/category/thong-bao
+- Chuyên mục **Tin tức - Sự kiện**: https://vientimtphcm.vn/luu-tru/category/tin-tuc-su-kien
+- Hoặc toàn bộ bài mới trên website (mục "Tin mới nhất" trên trang chủ: https://vientimtphcm.vn/blog)
 
-1. Tin nhắn: tiêu đề, ngày đăng, link (gửi **ngay**, không chờ chụp ảnh).
-2. Ảnh chụp **trang chuyên mục** + ảnh chụp **chi tiết bài viết** (bài dài tự cắt nhiều phần).
+Khi có bài mới, bot Telegram gửi:
+
+1. Tin nhắn: tiêu đề, chuyên mục, ngày đăng, link (gửi **ngay**, không chờ chụp ảnh).
+2. Ảnh chụp **trang chuyên mục** (tự động mở đúng chuyên mục chứa bài đó) + ảnh chụp **chi tiết bài viết** (bài dài tự cắt nhiều phần).
 3. Ảnh **văn bản gốc** trong bài (đọc rõ hơn) – có thể tắt bằng `SEND_SOURCE_IMAGES=0`.
 
 ## Tối ưu cho website chậm

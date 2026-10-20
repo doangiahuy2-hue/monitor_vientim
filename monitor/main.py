@@ -72,10 +72,12 @@ def download_images(urls: list[str]) -> list[tuple[str, bytes]]:
 
 def header_text(post: Post) -> str:
     lines = [
-        "📢 <b>THÔNG BÁO MỚI – VIỆN TIM TP.HCM</b>",
+        "📢 <b>BÀI VIẾT MỚI – VIỆN TIM TP.HCM</b>",
         "",
-        f"📝 <b>{esc(post.title)}</b>",
     ]
+    if post.category_name:
+        lines.append(f"📂 Chuyên mục: <b>{esc(post.category_name)}</b>")
+    lines.append(f"📝 <b>{esc(post.title)}</b>")
     if post.date_str:
         lines.append(f"🗓 {post.date_str}")
     lines.append(f"🔗 {esc(post.link)}")
@@ -90,7 +92,7 @@ def notify_post(tg: Telegram | None, post: Post) -> None:
         tg.send_message(header_text(post))  # lỗi ở đây → raise, bài sẽ được thử lại lần sau
 
     t = time.monotonic()
-    shots = screenshot.capture(post.id, post.link, post.title)
+    shots = screenshot.capture(post.id, post.link, post.title, category_url=post.category_url)
     log.info("Chụp xong bài %s trong %.0f s: %s | lỗi: %s",
              post.id, time.monotonic() - t, [p.name for p in shots.all], shots.errors)
 

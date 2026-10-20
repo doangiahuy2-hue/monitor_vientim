@@ -24,6 +24,7 @@ jobs:
     env:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      CATEGORIES: ${{ vars.CATEGORIES || '17,19' }}
       HEARTBEAT_HOUR: "8"
       PYTHONUNBUFFERED: "1"
     steps:

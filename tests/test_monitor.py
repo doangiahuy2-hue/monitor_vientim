@@ -42,6 +42,45 @@ def test_parse_api():
     assert posts[1].date_str == "30/09/2026 13:26"
 
 
+API_SAMPLE_WITH_EMBED = [
+    {
+        "id": 7109,
+        "date": "2026-10-09T07:55:00",
+        "date_gmt": "2026-10-09T00:55:00",
+        "link": "https://vientimtphcm.vn/luu-tru/7109",
+        "title": {"rendered": "Ng\u00e0y S\u1ee9c kho\u1ebb T\u00e2m th\u1ea7n th\u1ebf gi\u1edbi (10/10)"},
+        "content": {"rendered": ""},
+        "_embedded": {
+            "wp:term": [[
+                {
+                    "id": 19,
+                    "name": "Tin t\u1ee9c - S\u1ef1 ki\u1ec7n",
+                    "slug": "tin-tuc-su-kien",
+                    "link": "https://vientimtphcm.vn/luu-tru/category/tin-tuc-su-kien",
+                }
+            ]]
+        },
+    }
+]
+
+
+def test_parse_api_with_embedded_category():
+    posts = fetcher.parse_api(API_SAMPLE_WITH_EMBED)
+    assert posts[0].id == 7109
+    assert posts[0].category_name == "Tin tức - Sự kiện"
+    assert posts[0].category_url == "https://vientimtphcm.vn/luu-tru/category/tin-tuc-su-kien"
+
+
+def test_categories_param():
+    from monitor import config
+    config.CATEGORIES = "17,19"
+    assert config.get_categories_param() == "17,19"
+    config.CATEGORIES = "all"
+    assert config.get_categories_param() is None
+    config.CATEGORIES = ""
+    assert config.get_categories_param() is None
+
+
 def test_parse_rss():
     posts = fetcher.parse_rss(RSS_SAMPLE)
     assert len(posts) == 1 and posts[0].id == 7102
