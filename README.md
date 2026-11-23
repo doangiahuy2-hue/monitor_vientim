@@ -1,22 +1,22 @@
 # Monitor Viện Tim TP.HCM (Thông báo & Tin tức sự kiện) → Telegram
 
 Theo dõi 24/7 các bài viết và thông báo mới trên website Viện Tim TP.HCM:
-- Chuyên mục **Thông báo**: https://vientimtphcm.vn/luu-tru/category/thong-bao
-- Chuyên mục **Tin tức - Sự kiện**: https://vientimtphcm.vn/luu-tru/category/tin-tuc-su-kien
-- Hoặc toàn bộ bài mới trên website (mục "Tin mới nhất" trên trang chủ: https://vientimtphcm.vn/blog)
+- Mặc định theo dõi **toàn bộ bài mới** trên website (`CATEGORIES=all`: Thông báo, Tin tức - Sự kiện, Công tác xã hội, Quản lý chất lượng, Thông tin thầu, Đào tạo…).
+- Có thể thu hẹp theo ID chuyên mục qua biến `CATEGORIES` (ví dụ `17,19` cho Thông báo + Tin tức - Sự kiện).
 
 Khi có bài mới, bot Telegram gửi:
 
-1. Tin nhắn: tiêu đề, chuyên mục, ngày đăng, link (gửi **ngay**, không chờ chụp ảnh).
-2. Ảnh chụp **trang chuyên mục** (tự động mở đúng chuyên mục chứa bài đó) + ảnh chụp **chi tiết bài viết** (bài dài tự cắt nhiều phần).
-3. Ảnh **văn bản gốc** trong bài (đọc rõ hơn) – có thể tắt bằng `SEND_SOURCE_IMAGES=0`.
+1. Tin nhắn: tiêu đề, chuyên mục, ngày đăng, link bài viết và link tài liệu đính kèm nếu có (gửi **ngay**, không chờ chụp ảnh).
+2. Ảnh chụp **trang chuyên mục** (tự động mở đúng chuyên mục chứa bài đó) + ảnh chụp **chi tiết bài viết** (bài dài tự cắt nhiều phần; tự động render HTML từ API nếu trang web bị timeout).
+3. Ảnh **văn bản gốc** trong bài (bao gồm cả ảnh đại diện `featured_media` nếu là trang đầu văn bản, đọc rõ hơn) – có thể tắt bằng `SEND_SOURCE_IMAGES=0`.
+4. File **tài liệu đính kèm** (`.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`…) – có thể tắt bằng `SEND_DOCUMENTS=0`.
 
 ## Tối ưu cho website chậm
-- Trang HTML mất ~60 s, nhưng REST API của WordPress chỉ ~0,7 s → **phát hiện bằng API**, fallback RSS.
-- Chỉ mở Chromium khi thật sự có bài mới.
+- Trang HTML mất ~18–60 s, nhưng REST API của WordPress chỉ ~0,5–0,7 s → **phát hiện bằng API** (truy vấn theo ngày và theo ID để không sót bài lùi ngày), fallback RSS.
+- Chỉ mở Chromium khi thật sự có bài mới, dùng chung 1 trình duyệt Chromium cho cả ảnh chuyên mục và chi tiết bài viết.
 - Chặn font, video, tracker, iframe player; `wait_until=domcontentloaded`; ép ảnh lazy-load tải ngay; chỉ chờ ảnh trong vùng chụp.
-- Timeout 150 s, retry 3 lần; nếu trang chuyên mục còn cache cũ thì chờ và tải lại.
-- Chụp lỗi vẫn gửi ảnh gốc + cảnh báo → không bỏ sót bài.
+- Timeout 240 s (`PAGE_TIMEOUT_SEC`), retry 3 lần; kiểm tra cache trang chuyên mục tối đa `CATEGORY_WAIT_ROUNDS=2` vòng (`CATEGORY_WAIT_SEC=15` s, kèm cache-buster).
+- Nếu tải trang bài viết thất bại, tự động render HTML nội dung từ REST API để chụp; chụp lỗi vẫn gửi ảnh gốc + tài liệu + cảnh báo → không bỏ sót bài.
 - Cảnh báo khi website lỗi ≥ 3 lần liên tiếp, báo khi phục hồi; heartbeat hằng ngày (tuỳ chọn).
 
 ## 1. Tạo bot Telegram (miễn phí)

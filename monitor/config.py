@@ -34,8 +34,8 @@ def _env_bool(name: str, default: bool) -> bool:
 # --- Website ---
 BASE_URL = _env("SITE_BASE_URL", "https://vientimtphcm.vn")
 # CATEGORIES: danh sách ID cách nhau dấu phẩy (vd "17,19" để theo dõi Thông báo + Tin tức sự kiện),
-# hoặc để "all" / rỗng "" để theo dõi toàn bộ bài mới nhất của website Viện Tim.
-CATEGORIES = _env("CATEGORIES", _env("CATEGORY_ID", "17,19"))
+# hoặc để "all" / rỗng "" để theo dõi toàn bộ bài mới nhất của website Viện Tim (mặc định: "all").
+CATEGORIES = _env("CATEGORIES", _env("CATEGORY_ID", "all"))
 CATEGORY_URL = _env("CATEGORY_URL", f"{BASE_URL}/luu-tru/category/thong-bao")
 BLOG_URL = f"{BASE_URL}/blog"
 API_URL = f"{BASE_URL}/wp-json/wp/v2/posts"
@@ -59,11 +59,15 @@ TELEGRAM_CHAT_ID = _env("TELEGRAM_CHAT_ID")
 # --- Hành vi ---
 CHECK_INTERVAL_SEC = _env_int("CHECK_INTERVAL_SEC", 300)  # chế độ --loop
 FETCH_TIMEOUT_SEC = _env_int("FETCH_TIMEOUT_SEC", 45)
+FETCH_PER_PAGE = _env_int("FETCH_PER_PAGE", 20)
 PAGE_TIMEOUT_SEC = _env_int("PAGE_TIMEOUT_SEC", 240)  # site rất chậm (~60 s chỉ riêng HTML)
 SCREENSHOT_RETRIES = _env_int("SCREENSHOT_RETRIES", 3)
-CATEGORY_WAIT_ROUNDS = _env_int("CATEGORY_WAIT_ROUNDS", 3)  # chờ cache trang chuyên mục cập nhật
+CATEGORY_WAIT_ROUNDS = _env_int("CATEGORY_WAIT_ROUNDS", 2)  # chờ cache trang chuyên mục cập nhật
+CATEGORY_WAIT_SEC = _env_int("CATEGORY_WAIT_SEC", 15)
 SEND_SOURCE_IMAGES = _env_bool("SEND_SOURCE_IMAGES", True)  # gửi kèm ảnh scan gốc trong bài
 MAX_SOURCE_IMAGES = _env_int("MAX_SOURCE_IMAGES", 8)
+SEND_DOCUMENTS = _env_bool("SEND_DOCUMENTS", True)  # gửi kèm file PDF/Word/Excel đính kèm trong bài
+MAX_DOCUMENTS = _env_int("MAX_DOCUMENTS", 5)
 HEARTBEAT_HOUR = _env_int("HEARTBEAT_HOUR", -1)  # -1 = tắt; vd 8 = gửi lúc 08:xx giờ VN
 ALERT_AFTER_FAILURES = _env_int("ALERT_AFTER_FAILURES", 3)
 MAX_POSTS_PER_RUN = _env_int("MAX_POSTS_PER_RUN", 5)

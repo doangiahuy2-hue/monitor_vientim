@@ -1,8 +1,9 @@
+from datetime import datetime
 from pathlib import Path
 
 from PIL import Image
 
-from monitor import fetcher, state as state_mod
+from monitor import config, fetcher, main as main_mod, screenshot, state as state_mod
 from monitor.screenshot import split_tall_image
 
 API_SAMPLE = [
@@ -71,14 +72,183 @@ def test_parse_api_with_embedded_category():
     assert posts[0].category_url == "https://vientimtphcm.vn/luu-tru/category/tin-tuc-su-kien"
 
 
-def test_categories_param():
-    from monitor import config
-    config.CATEGORIES = "17,19"
+def test_categories_param(monkeypatch):
+    assert config.CATEGORIES == "all"
+    assert config.get_categories_param() is None
+    monkeypatch.setattr(config, "CATEGORIES", "17,19")
     assert config.get_categories_param() == "17,19"
-    config.CATEGORIES = "all"
+    monkeypatch.setattr(config, "CATEGORIES", "all")
     assert config.get_categories_param() is None
-    config.CATEGORIES = ""
+    monkeypatch.setattr(config, "CATEGORIES", "")
     assert config.get_categories_param() is None
+
+
+def test_parse_api_featured_media_and_multi_categories():
+    sample = [
+        {
+            "id": 7197,
+            "date": "2026-11-16T10:15:25",
+            "date_gmt": "2026-11-16T03:15:25",
+            "link": "https://vientimtphcm.vn/luu-tru/7197",
+            "title": {"rendered": "Góc nhỏ yêu thương"},
+            "content": {
+                "rendered": '<img src="https://vientimtphcm.vn/wp-content/uploads/2026/11/2-1-724x1024.png">'
+            },
+            "_embedded": {
+                "wp:featuredmedia": [
+                    {
+                        "id": 7203,
+                        "date": "2026-11-16T10:15:13",
+                        "link": "https://vientimtphcm.vn/luu-tru/7197/1-61",
+                        "media_type": "image",
+                        "source_url": "https://vientimtphcm.vn/wp-content/uploads/2026/11/1.png",
+                    }
+                ],
+                "wp:term": [[
+                    {"id": 21, "name": "Công tác xã hội- CSKH", "link": "https://vientimtphcm.vn/luu-tru/category/tro-giup-xa-hoi"},
+                    {"id": 19, "name": "Tin tức - Sự kiện", "link": "https://vientimtphcm.vn/luu-tru/category/tin-tuc-su-kien"},
+                ]],
+            },
+        },
+        {
+            "id": 7179,
+            "date": "2026-11-11T09:07:06",
+            "date_gmt": "2026-11-11T02:07:06",
+            "link": "https://vientimtphcm.vn/luu-tru/7179",
+            "title": {"rendered": "Chào mừng"},
+            "content": {"rendered": '<img src="https://vientimtphcm.vn/wp-content/uploads/2026/11/slide-1024x576.jpg">'},
+            "_embedded": {
+                "wp:featuredmedia": [
+                    {
+                        "id": 2673,
+                        "date": "2021-01-28T11:04:24",
+                        "link": "https://vientimtphcm.vn/luu-tru/2645/thong-bao-2",
+                        "media_type": "image",
+                        "source_url": "https://vientimtphcm.vn/wp-content/uploads/2021/01/thong-bao.jpg",
+                    }
+                ],
+            },
+        },
+        {
+            "id": 7183,
+            "date": "2026-11-16T08:17:25",
+            "link": "https://vientimtphcm.vn/luu-tru/7183",
+            "title": {"rendered": "Khảo sát"},
+            "content": {"rendered": ""},
+            "_embedded": {
+                "wp:featuredmedia": [{"code": "rest_forbidden", "data": {"status": 401}}],
+            },
+        },
+    ]
+    posts = fetcher.parse_api(sample)
+    assert posts[0].image_urls == [
+        "https://vientimtphcm.vn/wp-content/uploads/2026/11/1.png",
+        "https://vientimtphcm.vn/wp-content/uploads/2026/11/2-1.png",
+    ]
+    assert posts[0].category_name == "Công tác xã hội- CSKH, Tin tức - Sự kiện"
+    assert posts[1].image_urls == ["https://vientimtphcm.vn/wp-content/uploads/2026/11/slide.jpg"]
+    assert posts[2].image_urls == []
+
+
+def test_extract_documents():
+    html_snippet = """
+    <p><a href="/wp-content/uploads/2026/08/thong-bao.pdf">Tải PDF</a></p>
+    <p><a href="https://vientimtphcm.vn/wp-content/uploads/2026/08/thong-bao.pdf" download>Tải xuống</a></p>
+    <p><a href="https://vientimtphcm.vn/wp-content/uploads/2026/08/mau-don.docx?v=1">Mẫu đơn</a></p>
+    <p><a href="https://vientimtphcm.vn/luu-tru/7197">Bài viết</a></p>
+    <p><a href="#top">Lên đầu</a></p>
+    <iframe src="https://vientimtphcm.vn/wp-content/uploads/2026/08/bang-gia.xlsx"></iframe>
+    """
+    docs = fetcher.extract_documents(html_snippet)
+    assert docs == [
+        "https://vientimtphcm.vn/wp-content/uploads/2026/08/thong-bao.pdf",
+        "https://vientimtphcm.vn/wp-content/uploads/2026/08/mau-don.docx?v=1",
+        "https://vientimtphcm.vn/wp-content/uploads/2026/08/bang-gia.xlsx",
+    ]
+
+
+def test_render_fallback_html():
+    html_doc = screenshot.render_fallback_html(
+        title='Thông báo <Khẩn> & "Mới"',
+        content_html="<p>Nội dung chi tiết</p>",
+        date_str="16/11/2026 10:15",
+        category_name="Thông báo",
+        post_url="https://vientimtphcm.vn/luu-tru/7197",
+    )
+    assert 'id="fallback-article"' in html_doc
+    assert "Thông báo &lt;Khẩn&gt; &amp; &quot;Mới&quot;" in html_doc
+    assert "Nội dung chi tiết" in html_doc
+    assert "16/11/2026 10:15" in html_doc
+
+
+def test_detect_outputs(tmp_path: Path, monkeypatch):
+    st_file = tmp_path / "state.json"
+    out_file = tmp_path / "gh_output.txt"
+    st = state_mod.State(seen_ids=[7187], initialized=True, last_heartbeat_date="2026-11-23")
+    state_mod.save(st, st_file)
+
+    monkeypatch.setattr(config, "STATE_FILE", st_file)
+    monkeypatch.setattr(config, "HEARTBEAT_HOUR", 8)
+    monkeypatch.setenv("GITHUB_OUTPUT", str(out_file))
+    monkeypatch.setattr(main_mod, "now_vn", lambda: datetime(2026, 11, 23, 8, 5, tzinfo=config.TZ))
+
+    # Không có bài mới, đã heartbeat hôm nay -> has_new=false, should_run=false
+    monkeypatch.setattr(
+        fetcher,
+        "fetch_latest_posts",
+        lambda: [fetcher.Post(id=7187, title="A", link="x", date=datetime(2026, 11, 10, tzinfo=config.TZ))],
+    )
+    assert main_mod.detect() is False
+    assert "has_new=false\nshould_run=false\n" in out_file.read_text(encoding="utf-8")
+
+    # Có bài mới (kể cả ID nhỏ hơn max nhưng mới đăng gần đây) -> has_new=true, should_run=true
+    out_file.write_text("", encoding="utf-8")
+    monkeypatch.setattr(
+        fetcher,
+        "fetch_latest_posts",
+        lambda: [
+            fetcher.Post(id=7183, title="Mới", link="y", date=datetime(2026, 11, 16, tzinfo=config.TZ)),
+            fetcher.Post(id=7187, title="A", link="x", date=datetime(2026, 11, 10, tzinfo=config.TZ)),
+        ],
+    )
+    assert main_mod.detect() is True
+    assert "has_new=true\nshould_run=true\n" in out_file.read_text(encoding="utf-8")
+
+    # Không có bài mới, nhưng chưa gửi heartbeat hôm nay -> has_new=false, should_run=true
+    out_file.write_text("", encoding="utf-8")
+    st.last_heartbeat_date = "2026-11-22"
+    state_mod.save(st, st_file)
+    monkeypatch.setattr(
+        fetcher,
+        "fetch_latest_posts",
+        lambda: [fetcher.Post(id=7187, title="A", link="x", date=datetime(2026, 11, 10, tzinfo=config.TZ))],
+    )
+    assert main_mod.detect() is False
+    assert "has_new=false\nshould_run=true\n" in out_file.read_text(encoding="utf-8")
+
+
+def test_fetch_api_merges_date_and_id(monkeypatch):
+    calls = []
+
+    def fake_query(client, orderby, per_page):
+        calls.append((orderby, per_page))
+        if orderby == "date":
+            return [fetcher.Post(id=7197, title="A", link="u1", date=None)]
+        raise RuntimeError("orderby=id timeout")
+
+    monkeypatch.setattr(fetcher, "_query_api", fake_query)
+    posts = fetcher.fetch_api(None)
+    assert [p.id for p in posts] == [7197]
+    assert calls[0][0] == "date"
+
+    def fake_query_ok(client, orderby, per_page):
+        if orderby == "date":
+            return [fetcher.Post(id=7180, title="OldDate", link="u1", date=None)]
+        return [fetcher.Post(id=7199, title="Backdated", link="u2", date=None)]
+
+    monkeypatch.setattr(fetcher, "_query_api", fake_query_ok)
+    posts = fetcher.fetch_api(None)
+    assert [p.id for p in posts] == [7199, 7180]
 
 
 def test_parse_rss():
