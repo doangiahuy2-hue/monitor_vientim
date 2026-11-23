@@ -49,16 +49,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: pw-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          key: pw-v2-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
 
       - name: Cài Chromium (chỉ khi có bài mới)
         if: steps.detect.outputs.has_new == 'true' || inputs.test_latest
-        run: |
-          if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
-            python -m playwright install-deps chromium
-          else
-            python -m playwright install --with-deps chromium
-          fi
+        run: python -m playwright install --with-deps chromium
 
       - name: Chạy monitor
         if: steps.detect.outputs.should_run == 'true' || inputs.test_latest
