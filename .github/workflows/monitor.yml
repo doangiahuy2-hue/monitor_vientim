@@ -24,7 +24,7 @@ jobs:
     env:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      CATEGORIES: ${{ vars.CATEGORIES || '17,19' }}
+      CATEGORIES: ${{ vars.CATEGORIES || 'all' }}
       HEARTBEAT_HOUR: "8"
       PYTHONUNBUFFERED: "1"
     steps:
@@ -44,6 +44,7 @@ jobs:
         run: python -m monitor.main --detect
 
       - name: Cache trình duyệt Playwright
+        id: pw-cache
         if: steps.detect.outputs.has_new == 'true' || inputs.test_latest
         uses: actions/cache@v4
         with:
@@ -52,9 +53,15 @@ jobs:
 
       - name: Cài Chromium (chỉ khi có bài mới)
         if: steps.detect.outputs.has_new == 'true' || inputs.test_latest
-        run: python -m playwright install --with-deps chromium
+        run: |
+          if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
+            python -m playwright install-deps chromium
+          else
+            python -m playwright install --with-deps chromium
+          fi
 
       - name: Chạy monitor
+        if: steps.detect.outputs.should_run == 'true' || inputs.test_latest
         run: |
           if [ "${{ inputs.test_latest }}" = "true" ]; then
             python -m monitor.main --once --test-latest
