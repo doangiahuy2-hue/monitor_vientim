@@ -349,32 +349,39 @@ def capture(
         )
         return split_tall_image(path)
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=True,
-            args=["--disable-dev-shm-usage", "--no-sandbox", "--disable-gpu"],
-        )
-        try:
-            shots.category, err1 = _run_with_retry(browser, "chuyên mục", category_job)
-            shots.post, err2 = _run_with_retry(browser, "bài viết", post_job)
-            if err2 and content_html.strip():
-                try:
-                    shots.post = _capture_fallback_post(
-                        browser,
-                        out_dir,
-                        title=title,
-                        content_html=content_html,
-                        date_str=date_str,
-                        category_name=category_name,
-                        post_url=post_url,
-                    )
-                    shots.used_fallback = True
-                    log.info("Đã chụp ảnh dự phòng từ HTML API cho bài %s", post_id)
-                    err2 = None
-                except Exception as fb_err:  # noqa: BLE001
-                    log.warning("Chụp dự phòng bài %s lỗi: %s", post_id, fb_err)
-        finally:
-            browser.close()
+    err1: str | None = None
+    err2: str | None = None
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=True,
+                args=["--disable-dev-shm-usage", "--no-sandbox", "--disable-gpu"],
+            )
+            try:
+                shots.category, err1 = _run_with_retry(browser, "chuyên mục", category_job)
+                shots.post, err2 = _run_with_retry(browser, "bài viết", post_job)
+                if err2 and content_html.strip():
+                    try:
+                        shots.post = _capture_fallback_post(
+                            browser,
+                            out_dir,
+                            title=title,
+                            content_html=content_html,
+                            date_str=date_str,
+                            category_name=category_name,
+                            post_url=post_url,
+                        )
+                        shots.used_fallback = True
+                        log.info("Đã chụp ảnh dự phòng từ HTML API cho bài %s", post_id)
+                        err2 = None
+                    except Exception as fb_err:  # noqa: BLE001
+                        log.warning("Chụp dự phòng bài %s lỗi: %s", post_id, fb_err)
+            finally:
+                browser.close()
+    except Exception as e:  # noqa: BLE001 — không làm chết tiến trình nếu Chromium lỗi khởi động
+        log.error("Không khởi động được trình duyệt chụp bài %s: %s", post_id, e)
+        shots.errors.append(f"Trình duyệt: {str(e)[:300]}")
+        return shots
 
     shots.errors = [e for e in (err1, err2) if e]
     return shots
