@@ -30,7 +30,7 @@
     7197
   ],
   "initialized": true,
-  "consecutive_failures": 1,
+  "consecutive_failures": 2,
   "last_alert_ts": 0.0,
   "alert_active": false,
   "last_heartbeat_date": "2026-11-23"
